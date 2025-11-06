@@ -9,9 +9,11 @@ def get_trm():
     try:
         url = "https://www.dolar-colombia.com/"
         response = requests.get(url, timeout=10)
+        response.raise_for_status()
+
         soup = BeautifulSoup(response.text, "html.parser")
 
-        # Selector equivalent to your XPath
+        # CSS selector equivalent to your XPath
         trm_span = soup.select_one(
             "body > div:nth-of-type(1) > div:nth-of-type(2) > div:nth-of-type(2) > "
             "div:nth-of-type(1) > div > div:nth-of-type(2) > h2 > span"
@@ -20,18 +22,31 @@ def get_trm():
         if not trm_span:
             return jsonify({"error": "TRM element not found"}), 500
 
-        trm_value = float(
-            trm_span.text.replace(",", ".").replace("$", "").replace(" ", "")
-        )
+        raw = trm_span.text.strip()
+
+        # Remove currency symbol or spaces
+        raw = raw.replace("$", "").replace(" ", "")
+
+        # Fix formatting like 3.872.47 → 3872.47
+        if raw.count(".") > 1:
+            parts = raw.split(".")
+            corrected = "".join(parts[:-1]) + "." + parts[-1]
+        else:
+            corrected = raw
+
+        trm_value = float(corrected)
 
         return jsonify({"trm": trm_value})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route("/")
 def home():
     return "✅ TRM API is running"
 
+
 if __name__ == "__main__":
-    app.run()
+    # For local testing (Render uses gunicorn instead)
+    app.run(host="0.0.0.0", port=5000)
